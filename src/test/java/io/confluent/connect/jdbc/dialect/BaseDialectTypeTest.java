@@ -17,15 +17,8 @@ package io.confluent.connect.jdbc.dialect;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
+import java.sql.Types;
+import java.util.*;
 
 import io.confluent.connect.jdbc.sink.JdbcSinkConfig;
 import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
@@ -67,6 +60,7 @@ public abstract class BaseDialectTypeTest<T extends GenericDatabaseDialect> {
   public static final short SHORT = Short.MAX_VALUE;
   public static final byte BYTE = Byte.MAX_VALUE;
   public static final double DOUBLE = Double.MAX_VALUE;
+  public static final String UUID_VALUE = "8A52DFE1-CFB9-4C55-B74F-E3D56BBED827";
 
   @Parameterized.Parameter(0)
   public Schema.Type expectedType;
@@ -89,6 +83,9 @@ public abstract class BaseDialectTypeTest<T extends GenericDatabaseDialect> {
   @Parameterized.Parameter(6)
   public int scale;
 
+  @Parameterized.Parameter(7)
+  public String classNameForType;
+
   @Mock
   ResultSet resultSet = mock(ResultSet.class);
 
@@ -107,7 +104,7 @@ public abstract class BaseDialectTypeTest<T extends GenericDatabaseDialect> {
 
   @SuppressWarnings("deprecation")
   @Test
-  public void testValueConversionOnNumeric() throws Exception {
+  public void testValueConversion() throws Exception {
     when(columnDefn.precision()).thenReturn(precision);
     when(columnDefn.scale()).thenReturn(scale);
     when(columnDefn.type()).thenReturn(columnType);
@@ -115,6 +112,7 @@ public abstract class BaseDialectTypeTest<T extends GenericDatabaseDialect> {
     when(columnDefn.id()).thenReturn(COLUMN_ID);
     when(columnDefn.isSignedNumber()).thenReturn(signed);
     when(columnDefn.typeName()).thenReturn("parameterizedType");
+    when(columnDefn.classNameForType()).thenReturn(classNameForType);
 
     dialect = createDialect();
     schemaBuilder = SchemaBuilder.struct();
@@ -136,6 +134,10 @@ public abstract class BaseDialectTypeTest<T extends GenericDatabaseDialect> {
     when(resultSet.getShort(1)).thenReturn(SHORT);
     when(resultSet.getByte(1)).thenReturn(BYTE);
     when(resultSet.getDouble(1)).thenReturn(DOUBLE);
+
+    if (expectedValue instanceof String) {
+      when(resultSet.getString(1)).thenReturn((String)expectedValue);
+    }
 
     // Check the converter operates correctly
     ColumnMapping mapping = new ColumnMapping(columnDefn, 1, field);
