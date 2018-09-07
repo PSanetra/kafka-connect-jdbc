@@ -91,6 +91,11 @@ public class TimestampIncrementingTableQuerier extends TableQuerier {
     switch (mode) {
       case TABLE:
         builder.append("SELECT * FROM ");
+
+        if (schemaPattern != null && !schemaPattern.isEmpty()) {
+          builder.append(JdbcUtils.quoteString(schemaPattern, quoteString) + ".");
+        }
+
         builder.append(JdbcUtils.quoteString(name, quoteString));
         break;
       case QUERY:
