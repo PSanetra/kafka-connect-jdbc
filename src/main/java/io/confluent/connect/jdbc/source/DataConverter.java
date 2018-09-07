@@ -395,12 +395,15 @@ public class DataConverter {
       }
 
       case Types.BIT: {
-        /**
-         * BIT should be either 0 or 1.
-         * TODO: Postgres handles this differently, returning a string "t" or "f". See the
-         * elasticsearch-jdbc plugin for an example of how this is handled
-         */
-        colValue = resultSet.getByte(col);
+        // BIT should be either 0 or 1.
+
+        if (Boolean.class.getName().equals(resultSet.getMetaData().getColumnClassName(col))) {
+          // Postgres handles this differently, returning a boolean.
+          colValue = resultSet.getBoolean(col) ? (byte)1 : (byte)0;
+        } else {
+          colValue = resultSet.getByte(col);
+        }
+
         break;
       }
 
