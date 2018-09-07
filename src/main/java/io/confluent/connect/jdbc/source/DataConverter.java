@@ -35,10 +35,12 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Types;
+import java.util.UUID;
 
 import io.confluent.connect.jdbc.util.DateTimeUtils;
 
 import static io.confluent.connect.jdbc.source.JdbcSourceConnectorConfig.NumericMapping;
+import static java.sql.ResultSetMetaData.columnNoNulls;
 
 /**
  * DataConverter handles translating table schemas to Kafka Connect schemas and row data to Kafka
@@ -341,17 +343,39 @@ public class DataConverter {
         break;
       }
 
+      case Types.OTHER: {
+
+        if (UUID.class.getName().equals(metadata.getColumnClassName(col))) {
+          builder.field(
+                  fieldName,
+                  metadata.isNullable(col) != columnNoNulls
+                          ?
+                          Schema.OPTIONAL_STRING_SCHEMA :
+                          Schema.STRING_SCHEMA
+          );
+          break;
+        } else {
+          logJdbcTypeNotSupported(metadata.getColumnTypeName(col), sqlType);
+          break;
+        }
+      }
+
       case Types.ARRAY:
       case Types.JAVA_OBJECT:
-      case Types.OTHER:
       case Types.DISTINCT:
       case Types.STRUCT:
       case Types.REF:
       case Types.ROWID:
       default: {
-        log.warn("JDBC type {} not currently supported", sqlType);
+        logJdbcTypeNotSupported(metadata.getColumnTypeName(col), sqlType);
         break;
       }
+    }
+  }
+
+  private static void logJdbcTypeNotSupported(String typeName, int sqlType) {
+    if (log.isWarnEnabled()) {
+      log.warn("JDBC type {} ({}) not currently supported", sqlType, typeName);
     }
   }
 
@@ -568,9 +592,16 @@ public class DataConverter {
         break;
       }
 
+      case Types.OTHER: {
+        if (UUID.class.getName().equals(resultSet.getMetaData().getColumnClassName(col))) {
+          colValue = resultSet.getString(col);
+          break;
+        }
+        return;
+      }
+
       case Types.ARRAY:
       case Types.JAVA_OBJECT:
-      case Types.OTHER:
       case Types.DISTINCT:
       case Types.STRUCT:
       case Types.REF:
