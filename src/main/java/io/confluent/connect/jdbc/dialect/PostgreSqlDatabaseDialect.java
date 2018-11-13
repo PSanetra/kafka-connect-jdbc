@@ -28,6 +28,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collection;
+import java.util.UUID;
 
 import io.confluent.connect.jdbc.dialect.DatabaseDialectProvider.SubprotocolBasedProvider;
 import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
@@ -125,6 +126,18 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
           );
           return fieldName;
         }
+
+        if (UUID.class.getName().equals(columnDefn.classNameForType())) {
+          builder.field(
+                  fieldName,
+                  columnDefn.isOptional()
+                          ?
+                          Schema.OPTIONAL_STRING_SCHEMA :
+                          Schema.STRING_SCHEMA
+          );
+          return fieldName;
+        }
+
         break;
       }
       default:
@@ -136,12 +149,13 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
   }
 
   @Override
-  public ColumnConverter createColumnConverter(
-      ColumnMapping mapping
+  protected ColumnConverter columnConverterFor(
+          final ColumnMapping mapping,
+          final ColumnDefinition columnDefn,
+          final int col,
+          final boolean isJdbc4
   ) {
     // First handle any PostgreSQL-specific types
-    ColumnDefinition columnDefn = mapping.columnDefn();
-    int col = mapping.columnNumber();
     switch (columnDefn.type()) {
       case Types.BIT: {
         // PostgreSQL allows variable length bit strings, but when length is 1 then the driver
@@ -160,6 +174,10 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
         if (isJsonType(columnDefn)) {
           return rs -> rs.getString(col);
         }
+
+        if (UUID.class.getName().equals(columnDefn.classNameForType())) {
+          return rs -> rs.getString(col);
+        }
         break;
       }
       default:
@@ -167,7 +185,7 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
     }
 
     // Delegate for the remaining logic
-    return super.createColumnConverter(mapping);
+    return super.columnConverterFor(mapping, columnDefn, col, isJdbc4);
   }
 
   protected boolean isJsonType(ColumnDefinition columnDefn) {
